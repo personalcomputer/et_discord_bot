@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import random
 
 from etwolf_client import ETClient
@@ -18,7 +17,13 @@ class MockETServerProtocol(asyncio.DatagramProtocol):
     def datagram_received(self, data, addr):
         message_type = data[4:data.find(b'\n')]
         if message_type == b'getinfo':
-            get_info_response = 'infoResponse\n\\challenge\\xxx\\version\\ET Legacy v2.75 linux-i386 Sep 13 2016\\protocol\\84\\hostname\\^9example^5host\\serverload\\0\\mapname\\obj_stadtrand\\clients\\0\\humans\\0\\sv_maxclients\\10\\gametype\\5\\pure\\1\\game\\etmain\\friendlyFire\\0\\maxlives\\0\\needpass\\0\\gamename\\et\\g_antilag\\1\\weaprestrict\\100\\balancedteams\\1'
+            get_info_response = (
+                'infoResponse\n\\challenge\\xxx\\version\\ET Legacy v2.75 linux-i386 Sep 13 2016\\protocol\\84\\hostnam'
+                'e\\^9example^5host\\serverload\\0\\mapname\\obj_stadtrand\\clients\\0\\humans\\0\\sv_maxclients\\10\\g'
+                'ametype\\5\\pure\\1\\game\\etmain\\friendlyFire\\0\\maxlives\\0\\needpass\\0\\gamename\\et\\g_antilag'
+                '\\1\\weaprestrict\\100\\balancedteams\\1'
+            )
+
             self.transport.sendto(b'\xff\xff\xff\xff'+get_info_response.encode(), addr)
         self.received_bytes += data
 

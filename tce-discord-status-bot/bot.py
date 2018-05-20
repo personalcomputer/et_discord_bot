@@ -35,7 +35,7 @@ class ETBot(object):
     def run_blocking(self):
         try:
             self.loop.run_until_complete(self._dclient.login(self._api_auth_token))
-            self.loop.run_until_complete(self._dclient.connect()) # Does more than connect, sets up blocking event loop
+            self.loop.run_until_complete(self._dclient.connect())  # Does more than connect, sets up blocking event loop
         except KeyboardInterrupt:
             self.loop.run_until_complete(self._dclient.logout())
             pending = asyncio.Task.all_tasks(loop=self.loop)
@@ -49,7 +49,7 @@ class ETBot(object):
         finally:
             self.loop.close()
 
-    async def _on_discord_ready(self, ):
+    async def _on_discord_ready(self):
         logging.info(f'Successfully logged in as {self._dclient.user.name} ({self._dclient.user.id})')
 
     async def _on_discord_message(self, message):
@@ -104,8 +104,8 @@ class ETBot(object):
             return None
         else:
             response = (
-                f'Hi there! I provide info on {config.game_name} server status. I\'m like the in-game multiplayer server'
-                f' list, but imported into Discord.\n'
+                f'Hi there! I provide info on {config.game_name} server status. I\'m like the in-game multiplayer '
+                f'server list, but imported into Discord.\n'
                 f'\n'
                 f'Supported commands:\n'
                 f' • !serverstatus\n'
