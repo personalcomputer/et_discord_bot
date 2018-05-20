@@ -1,0 +1,10 @@
+{
+    "discord_api_auth_token": "<token>",
+    "bot_administrator": "<your name here>",
+    "game_name": "Wolfenstein: Enemy Territory",
+    "et_hosts_list": [
+        ["serv1.example.com", 27960],
+        ["serv2.example.com", 27960]
+    ],
+    "server_status_cache_expiry": 5 // in seconds
+}
