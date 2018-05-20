@@ -17,7 +17,7 @@ class DiscordClient(discord.Client):
         setattr(self, event_name, callback_func)
 
 
-class TCEBot(object):
+class ETBot(object):
 
     def __init__(self, api_auth_token, loop=None):
         self.loop = loop or asyncio.get_event_loop()
@@ -83,7 +83,7 @@ class TCEBot(object):
 
         if refresh_cache:
             host_details = []
-            for host in config.tce_hosts_list:
+            for host in config.et_hosts_list:
                 raw_info = await self._etclient.get_server_info(host[0], host[1])
                 host_details.append((
                     raw_info.server_info["hostname_plaintext"],
@@ -107,8 +107,8 @@ class TCEBot(object):
             return None
         else:
             response = (
-                f'Hi there! I\'m {self._dclient.user.name} and I provide info on True Combat: Elite server '
-                f'status. I\'m like TCE\'s in-game multiplayer server list, but imported into Discord.\n'
+                f'Hi there! I provide info on Enemy Territory '
+                f'status. I\'m like ET\'s in-game multiplayer server list, but imported into Discord.\n'
                 f'\n'
                 f'Supported commands:\n'
                 f' • !serverstatus\n'
