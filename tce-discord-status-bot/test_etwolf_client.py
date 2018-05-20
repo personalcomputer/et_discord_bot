@@ -35,16 +35,4 @@ class TestServerStatus(object):
         raw_info = loop.run_until_complete(client.get_server_info('127.0.0.1', server_port))
 
         assert(int(raw_info.server_info['humans']) == 0)
-        assert('9examplehost' in raw_info.server_info['hostname_plaintext'])
-
-# import mock
-
-# from bot import ETBot
-# class ETBotTestCase(object):
-
-#     def test_reply_dm(self):
-#         with mock.patch('DiscordClient'):
-#             bot = ETBot(asyncio.get_event_loop(), 'faketoken')
-#             bot._reply_dm
-
-#     def test_reply_serverstatus(self):
+        assert('examplehost' in raw_info.server_info['hostname_plaintext'])

@@ -88,11 +88,8 @@ class ETBot(object):
                 host_details.append((
                     raw_info.server_info["hostname_plaintext"],
                     int(raw_info.server_info['humans']),
-                    # [player['name'] for player in raw_info.players_info]
                 ))
 
-            # total_players = sum(h[1] for h in host_details)
-            # response = f'{total_players} total players are online.\n'
             response = '\n'.join([
                 f'{host[0]}: {host[1]} {p.plural("player", host[1])}'
                 for host in host_details
