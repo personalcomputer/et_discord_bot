@@ -104,8 +104,8 @@ class ETBot(object):
             return None
         else:
             response = (
-                f'Hi there! I provide info on Enemy Territory '
-                f'status. I\'m like ET\'s in-game multiplayer server list, but imported into Discord.\n'
+                f'Hi there! I provide info on {config.game_name} server status. I\'m like the in-game multiplayer server'
+                f' list, but imported into Discord.\n'
                 f'\n'
                 f'Supported commands:\n'
                 f' • !serverstatus\n'
