@@ -10,7 +10,14 @@ def main():
     loop = asyncio.get_event_loop()
 
     bot = ETBot(config.discord_api_auth_token, loop)
-    bot.run_blocking()
+    loop.create_task(bot.start())
+    try:
+        loop.run_forever()
+    except KeyboardInterrupt:
+        logout_task = loop.create_task(bot.logout())
+        loop.run_until_complete(logout_task)
+    finally:
+        loop.close()
 
 
 if __name__ == '__main__':

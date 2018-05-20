@@ -10,19 +10,27 @@ from .globals import config, p
 
 class DiscordClient(discord.Client):
     """
-    A slight modification of the discord.py Client that hides some of the metaprogramming.
+    A slight modification of the discord.py Client that hides some of the metaprogramming and also untangles the event
+    loop control such that DiscordClient only creates tasks, you need to set up the event loop externally.
     """
+
+    def __init__(self, api_auth_token, loop=None):
+        self._api_auth_token = api_auth_token
+        super().__init__(loop=loop)
 
     def add_event_callback(self, event_name, callback_func):
         setattr(self, event_name, callback_func)
+
+    async def start(self):
+        await self.login(self._api_auth_token)
+        await self.connect()
 
 
 class ETBot(object):
 
     def __init__(self, api_auth_token, loop=None):
         self.loop = loop or asyncio.get_event_loop()
-        self._api_auth_token = api_auth_token
-        self._dclient = DiscordClient(loop=loop)
+        self._dclient = DiscordClient(api_auth_token=api_auth_token, loop=loop)
         self._dclient.add_event_callback('on_ready', lambda: self._on_discord_ready())
         self._dclient.add_event_callback('on_message', lambda message: self._on_discord_message(message))
 
@@ -32,22 +40,13 @@ class ETBot(object):
 
         self._users_who_have_seen_help_message = set()
 
-    def run_blocking(self):
-        try:
-            self.loop.run_until_complete(self._dclient.login(self._api_auth_token))
-            self.loop.run_until_complete(self._dclient.connect())  # Does more than connect, sets up blocking event loop
-        except KeyboardInterrupt:
-            self.loop.run_until_complete(self._dclient.logout())
-            pending = asyncio.Task.all_tasks(loop=self.loop)
-            gathered = asyncio.gather(*pending, loop=self.loop)
-            try:
-                gathered.cancel()
-                self.loop.run_until_complete(gathered)
-                gathered.exception()
-            except:
-                pass
-        finally:
-            self.loop.close()
+    async def start(self):
+        await self._dclient.start()
+
+    async def logout(self):
+        logging.info('logging out')
+        await self._dclient.logout()
+        await self._dclient.close()
 
     async def _on_discord_ready(self):
         logging.info(f'Successfully logged in as {self._dclient.user.name} ({self._dclient.user.id})')
