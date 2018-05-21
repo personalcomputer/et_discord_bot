@@ -2,6 +2,7 @@ import asyncio
 import collections
 import logging
 import re
+import json
 
 
 class ETGameClientProtocol(asyncio.DatagramProtocol):
@@ -37,6 +38,7 @@ class ETGameClientProtocol(asyncio.DatagramProtocol):
     def decode_infoResponse(self, message_parts):
         server_info = self.decode_dict(message_parts[1])
         server_info['hostname_plaintext'] = re.sub(r'\^\d', '', server_info['hostname'])
+        logging.debug(json.dumps(server_info, indent=4, sort_keys=True))
         # Known values:
         # 'challenge', 'version', 'protocol', 'hostname', 'serverload', 'mapname', 'clients', 'humans', 'sv_maxclients',
         # 'gametype', 'pure', 'game', 'friendlyFire', 'maxlives', 'needpass', 'gamename', 'g_antilag', 'weaprestrict',

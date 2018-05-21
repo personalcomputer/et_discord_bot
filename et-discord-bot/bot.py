@@ -1,11 +1,15 @@
 import asyncio
 import datetime
 import logging
+import socket
+import pytz
 
 import discord
 
 from .etwolf_client import ETClient
 from .globals import config, p
+
+QUERY_FREQUENCY = datetime.timedelta(seconds=60)
 
 
 class DiscordClient(discord.Client):
@@ -35,9 +39,9 @@ class ETBot(object):
         self._dclient.add_event_callback('on_message', lambda message: self._on_discord_message(message))
 
         self._etclient = ETClient(loop)
-        self._serverstatus_message_cache = None
-        self._serverstatus_cached_timed = None
 
+        self._status_channel = None
+        self._status_message = None
         self._users_who_have_seen_help_message = set()
 
     async def start(self):
@@ -50,6 +54,12 @@ class ETBot(object):
 
     async def _on_discord_ready(self):
         logging.info(f'Successfully logged in as {self._dclient.user.name} ({self._dclient.user.id})')
+        self._status_channel = self._dclient.get_channel(config.status_output_channel)
+        async for message in self._dclient.logs_from(self._status_channel, limit=30):
+            if message.author == self._dclient.user:
+                self._status_message = message
+                break
+        self.loop.create_task(self._update())
 
     async def _on_discord_message(self, message):
         if message.author == self._dclient.user:
@@ -57,9 +67,7 @@ class ETBot(object):
 
         logging.debug('Recieved message from @{message.author.name}: "{message.content}"')
 
-        if message.content == '!serverstatus':
-            response = await self._reply_serverstatus()
-        elif message.channel.is_private:
+        if message.channel.is_private:
             response = await self._reply_dm(message)
         else:
             return
@@ -71,32 +79,57 @@ class ETBot(object):
                      f' →  "{response}"')
         await self._dclient.send_message(message.channel, response)
 
-    async def _reply_serverstatus(self):
-        refresh_cache = False
-        if self._serverstatus_message_cache is None:
-            refresh_cache = True
+    async def _update(self):
+        while not self._dclient.is_closed:
+            start = datetime.datetime.now()
+            hosts = await self._get_serverstatus()
+            await self._post_serverstatus(hosts)
+            end = datetime.datetime.now()
+            await asyncio.sleep((QUERY_FREQUENCY - (end-start)).total_seconds())
+
+    async def _post_serverstatus(self, hosts):
+        message_embed = discord.Embed(
+            title=f'{config.game_name} Servers',
+            colour=int('0xFFFFFF', 16),
+        )
+        total_players = 0
+        for host_info in hosts:
+            info = host_info[1].server_info
+            player_count = info['humans'] if 'humans' in info else info['clients']
+            total_players += int(player_count)
+            message_embed.add_field(
+                name=f'{player_count}/{info["sv_maxclients"]} | {info["hostname_plaintext"]}',
+                value=f'Map: {info["mapname"]} | Connect: {host_info[0][0]}:{host_info[0][1]}',
+                inline=False,
+            )
+        last_updated = datetime.datetime.now(tz=pytz.timezone(config.output_timezone))
+        message_embed.description = (
+            f'{total_players} total players online '
+            f'(list last updated at {last_updated.strftime("%H:%M")} {last_updated.tzname()})'
+        )
+
+        logging.info(f'Posting status message')
+        if self._status_message:
+            await self._dclient.edit_message(self._status_message, embed=message_embed)
         else:
-            cache_age = datetime.datetime.now() - self._serverstatus_cached_time
-            cache_life = datetime.timedelta(seconds=config.server_status_cache_expiry)
-            refresh_cache = cache_age >= cache_life
+            self._status_message = await self._dclient.send_message(self._status_channel, embed=message_embed)
 
-        if refresh_cache:
-            host_details = []
-            for host in config.et_hosts_list:
-                raw_info = await self._etclient.get_server_info(host[0], host[1])
-                host_details.append((
-                    raw_info.server_info["hostname_plaintext"],
-                    int(raw_info.server_info['humans']),
-                ))
+    async def _get_serverstatus(self):
+        logging.info(f'Querying server status')
+        tasks = []
+        for host in config.et_hosts_list:
+            tasks.append((
+                (socket.gethostbyname(host[0]), host[1]),
+                self.loop.create_task(self._etclient.get_server_info(host[0], host[1]))
+            ))
 
-            response = '\n'.join([
-                f'{host[0]}: {host[1]} {p.plural("player", host[1])}'
-                for host in host_details
-            ])
+        await asyncio.gather(*[h[1] for h in tasks])
 
-            self._serverstatus_message_cache = response
-            self._serverstatus_cached_time = datetime.datetime.now()
-        return self._serverstatus_message_cache
+        host_details = [
+            (task[0], task[1].result())
+            for task in tasks if not task[1].exception()
+        ]
+        return sorted(host_details, key=lambda host_info: host_info[1].server_info['hostname_plaintext'], reverse=True)
 
     async def _reply_dm(self, message):
         if message.author in self._users_who_have_seen_help_message:
@@ -106,8 +139,7 @@ class ETBot(object):
                 f'Hi there! I provide info on {config.game_name} server status. I\'m like the in-game multiplayer '
                 f'server list, but imported into Discord.\n'
                 f'\n'
-                f'Supported commands:\n'
-                f' • !serverstatus\n'
+                f'You can see my updates on this channel: #{self._status_channel.name}\n'
                 f'\n'
                 f'For help and support, please reach out to {config.bot_administrator}. Cheers!'
             )

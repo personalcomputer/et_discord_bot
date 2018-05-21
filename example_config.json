@@ -1,7 +1,9 @@
 {
     "discord_api_auth_token": "<token>",
     "bot_administrator": "<your name here>",
+    "status_output_channel": "<channel id>",
     "game_name": "Wolfenstein: Enemy Territory",
+    "output_timezone": "US/Pacific",
     "et_hosts_list": [
         ["serv1.example.com", 27960],
         ["serv2.example.com", 27960]
