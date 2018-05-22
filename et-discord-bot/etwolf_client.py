@@ -1,8 +1,13 @@
 import asyncio
 import collections
+import datetime
+import json
 import logging
 import re
-import json
+
+from async_timeout import timeout
+
+ET_SERVER_RESPONSE_TIMEOUT = datetime.timedelta(seconds=3)
 
 
 class ETGameClientProtocol(asyncio.DatagramProtocol):
@@ -66,7 +71,7 @@ class ETGameClientProtocol(asyncio.DatagramProtocol):
             logging.warning(f'Parsing message of type "{message_type}" not implemented, ignoring message.')
             return
 
-        logging.info(f'Received {message_type}')
+        logging.debug(f'Received {message_type}')
         self.message_queue.append((message_type, message))
 
         # Wake up waiter.
@@ -87,7 +92,7 @@ class ETGameClientProtocol(asyncio.DatagramProtocol):
         logging.error(f'ETGameClientProtocol: Error received: {str(exc)}')
 
     def connection_lost(self, exc):
-        logging.error('ETGameClientProtocol: Socket closed')
+        logging.debug('ETGameClientProtocol: Socket closed')
 
 
 class ETClient(object):
@@ -101,8 +106,9 @@ class ETClient(object):
             remote_addr=(server, port)
         )
         protocol.send_getinfo()
-        await protocol.wait_for_message()
-        message_type, message = protocol.message_queue.pop()
-        assert(message_type == 'infoResponse')
-        transport.close()
-        return message
+        async with timeout(ET_SERVER_RESPONSE_TIMEOUT.total_seconds()):
+            await protocol.wait_for_message()
+            message_type, message = protocol.message_queue.pop()
+            assert(message_type == 'infoResponse')
+            transport.close()
+            return message

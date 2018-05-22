@@ -1,8 +1,8 @@
 import asyncio
 import logging
 
-from .globals import config
 from .bot import ETBot
+from .globals import config
 
 
 def main():
