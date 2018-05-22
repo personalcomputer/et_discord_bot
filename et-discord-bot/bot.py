@@ -1,8 +1,8 @@
 import asyncio
 import datetime
 import logging
-import socket
 import pytz
+import socket
 
 import discord
 
@@ -95,11 +95,15 @@ class ETBot(object):
         total_players = 0
         for host_info in hosts:
             info = host_info[1].server_info
-            player_count = info['humans'] if 'humans' in info else info['clients']
-            total_players += int(player_count)
+            player_count = int(info['humans'] if 'humans' in info else info['clients'])
+            total_players += player_count
+            if player_count > 0:
+                icon = ':small_orange_diamond:'
+            else:
+                icon = ':black_small_square:'
             message_embed.add_field(
-                name=f'{player_count}/{info["sv_maxclients"]} | {info["hostname_plaintext"]}',
-                value=f'Map: {info["mapname"]} | Connect: {host_info[0][0]}:{host_info[0][1]}',
+                name=f'{icon} {player_count}/{info["sv_maxclients"]} | {info["hostname_plaintext"]}',
+                value=f'`+connect {host_info[0][0]}:{host_info[0][1]}` | Map: {info["mapname"]}',
                 inline=False,
             )
         last_updated = datetime.datetime.now(tz=pytz.timezone(config.output_timezone))
@@ -124,7 +128,6 @@ class ETBot(object):
             ))
 
         await asyncio.gather(*[h[1] for h in tasks])
-
         host_details = [
             (task[0], task[1].result())
             for task in tasks if not task[1].exception()
