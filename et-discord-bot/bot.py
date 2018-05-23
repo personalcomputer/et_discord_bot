@@ -100,7 +100,7 @@ class ETBot(object):
             if player_count > 0:
                 icon = ':large_blue_circle:'
             else:
-                icon = ':black_small_square:'
+                icon = ':black_circle:'
             message_embed.add_field(
                 name=f'{icon} {player_count}/{info["sv_maxclients"]} | {info["hostname_plaintext"]}',
                 value=f'`+connect {host_info[0][0]}:{host_info[0][1]}` | Map: {info["mapname"]}',
