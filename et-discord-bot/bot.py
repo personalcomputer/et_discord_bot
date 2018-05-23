@@ -8,6 +8,7 @@ import discord
 
 from .etwolf_client import ETClient
 from .globals import config, p
+from .util import get_time_until_next_interval_start
 
 QUERY_FREQUENCY = datetime.timedelta(seconds=60)
 
@@ -81,11 +82,10 @@ class ETBot(object):
 
     async def _update(self):
         while not self._dclient.is_closed:
-            start = datetime.datetime.now()
             hosts = await self._get_serverstatus()
             await self._post_serverstatus(hosts)
-            end = datetime.datetime.now()
-            await asyncio.sleep((QUERY_FREQUENCY - (end-start)).total_seconds())
+            now = datetime.datetime.now(tz=pytz.timezone(config.output_timezone))
+            await asyncio.sleep((get_time_until_next_interval_start(now, QUERY_FREQUENCY)).total_seconds())
 
     async def _post_serverstatus(self, hosts):
         message_embed = discord.Embed(
@@ -98,7 +98,7 @@ class ETBot(object):
             player_count = int(info['humans'] if 'humans' in info else info['clients'])
             total_players += player_count
             if player_count > 0:
-                icon = ':small_orange_diamond:'
+                icon = ':large_blue_circle:'
             else:
                 icon = ':black_small_square:'
             message_embed.add_field(
