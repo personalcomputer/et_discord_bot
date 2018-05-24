@@ -2,11 +2,10 @@
     "discord_api_auth_token": "<token>",
     "bot_administrator": "<your name here>",
     "status_output_channel": "<channel id>",
-    "game_name": "Wolfenstein: Enemy Territory",
+    "game_name_display": "Wolfenstein: Enemy Territory",
+    "server_filter": {
+        "game": "legacy",
+        "needpass": "0"
+    },
     "output_timezone": "US/Pacific",
-    "et_hosts_list": [
-        ["serv1.example.com", 27960],
-        ["serv2.example.com", 27960]
-    ],
-    "server_status_cache_expiry": 5 // in seconds
 }

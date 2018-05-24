@@ -1,16 +1,18 @@
 import asyncio
+import copy
 import datetime
 import logging
-import pytz
 import socket
 
 import discord
+import pytz
 
 from .etwolf_client import ETClient
 from .globals import config, p
 from .util import get_time_until_next_interval_start
 
-QUERY_FREQUENCY = datetime.timedelta(seconds=60)
+SERVER_LIST_UPDATE_FREQUENCY = datetime.timedelta(hours=1)
+STATUS_UPDATE_FREQUENCY = datetime.timedelta(seconds=60)
 
 
 class DiscordClient(discord.Client):
@@ -41,6 +43,7 @@ class ETBot(object):
 
         self._etclient = ETClient(loop)
 
+        self._host_list = []
         self._status_channel = None
         self._status_message = None
         self._users_who_have_seen_help_message = set()
@@ -60,7 +63,8 @@ class ETBot(object):
             if message.author == self._dclient.user:
                 self._status_message = message
                 break
-        self.loop.create_task(self._update())
+        self.loop.create_task(self._update_status_message())
+        self.loop.create_task(self._update_server_list())
 
     async def _on_discord_message(self, message):
         if message.author == self._dclient.user:
@@ -80,30 +84,52 @@ class ETBot(object):
                      f' →  "{response}"')
         await self._dclient.send_message(message.channel, response)
 
-    async def _update(self):
+    async def _update_status_message(self):
         while not self._dclient.is_closed:
-            hosts = await self._get_serverstatus()
-            await self._post_serverstatus(hosts)
+            host_details = await self._get_serverstatus()
+            await self._post_serverstatus(host_details)
             now = datetime.datetime.now(tz=pytz.timezone(config.output_timezone))
-            await asyncio.sleep((get_time_until_next_interval_start(now, QUERY_FREQUENCY)).total_seconds())
+            await asyncio.sleep((get_time_until_next_interval_start(now, STATUS_UPDATE_FREQUENCY)).total_seconds())
 
-    async def _post_serverstatus(self, hosts):
+    async def _update_server_list(self):
+        while not self._dclient.is_closed:
+            full_host_list = await self._etclient.get_server_list()
+            for hostname, port in host_list:
+                tasks.append(self.loop.create_task(self._etclient.get_server_info(hostname, port)))
+
+            await asyncio.gather(*[h[1] for h in tasks], return_exceptions=True)
+
+            filtered_host_list = []
+            for (hostname, port), task in zip(host_list, tasks):
+                if task.exception():
+                    continue
+                host_details = task.result()
+                for key in config.server_filter:
+                    if key not in host_details:
+                        continue
+                    if host_details[key] != config.server_filter[key]:
+                        continue
+                filtered_host_list.append((hostname, port))
+
+            self._host_list = filtered_host_list
+            await asyncio.sleep(SERVER_LIST_UPDATE_FREQUENCY.total_seconds())
+
+    async def _post_serverstatus(self, host_details):
         message_embed = discord.Embed(
-            title=f'{config.game_name} Servers',
+            title=f'{config.game_name_display} Servers',
             colour=int('0xFFFFFF', 16),
         )
         total_players = 0
-        for host_info in hosts:
-            info = host_info[1].server_info
-            player_count = int(info['humans'] if 'humans' in info else info['clients'])
+        for host_info in host_details:
+            player_count = int(host_info['humans'] if 'humans' in host_info else host_info['clients'])
             total_players += player_count
             if player_count > 0:
                 icon = ':large_blue_circle:'
             else:
                 icon = ':black_circle:'
             message_embed.add_field(
-                name=f'{icon} {player_count}/{info["sv_maxclients"]} | {info["hostname_plaintext"]}',
-                value=f'`+connect {host_info[0][0]}:{host_info[0][1]}` | Map: {info["mapname"]}',
+                name=f'{icon} {player_count}/{host_info["sv_maxclients"]} | {host_info["hostname_plaintext"]}',
+                value=f'`+connect {host_info["ip"]}:{host_info["port"]}` | Map: {host_info["mapname"]}',
                 inline=False,
             )
         last_updated = datetime.datetime.now(tz=pytz.timezone(config.output_timezone))
@@ -112,7 +138,7 @@ class ETBot(object):
             f'(list last updated at {last_updated.strftime("%H:%M")} {last_updated.tzname()})'
         )
 
-        logging.info(f'Posting status message')
+        logging.info(f'Posting status message. {total_players} players online.')
         if self._status_message:
             await self._dclient.edit_message(self._status_message, embed=message_embed)
         else:
@@ -121,28 +147,35 @@ class ETBot(object):
     async def _get_serverstatus(self):
         logging.info(f'Querying server status')
         tasks = []
-        for host in config.et_hosts_list:
-            tasks.append((
-                (socket.gethostbyname(host[0]), host[1]),
-                self.loop.create_task(self._etclient.get_server_info(host[0], host[1]))
-            ))
+        host_list = copy(self._host_list)
+        for hostname, port in host_list:
+            tasks.append(self.loop.create_task(self._etclient.get_server_info(hostname, port)))
 
         await asyncio.gather(*[h[1] for h in tasks], return_exceptions=True)
         if any(task[1].exception() for task in tasks):
             logging.warning(f'{sum(task[1].exception() is not None for task in tasks)} failed get_server_info queries')
 
-        host_details = [
-            (task[0], task[1].result())
-            for task in tasks if not task[1].exception()
-        ]
-        return sorted(host_details, key=lambda host_info: host_info[1].server_info['hostname_plaintext'], reverse=True)
+        host_details = []
+        for (hostname, port), task in zip(host_list, tasks):
+            if task.exception():
+                break
+            host_info = task.result()
+            host_info['ip'] = hostname
+            host_info['port'] = port
+            host_details.append(host_info)
+
+        return sorted(
+            host_details,
+            key=lambda host_info: host_info['hostname_plaintext'],
+            reverse=True
+        )
 
     async def _reply_dm(self, message):
         if message.author in self._users_who_have_seen_help_message:
             return None
         else:
             response = (
-                f'Hi there! I provide info on {config.game_name} server status. I\'m like the in-game multiplayer '
+                f'Hi there! I provide info on {config.game_name_display} server status. I\'m like the in-game multiplayer '
                 f'server list, but imported into Discord.\n'
                 f'\n'
                 f'You can see my updates on this channel: #{self._status_channel.name}\n'

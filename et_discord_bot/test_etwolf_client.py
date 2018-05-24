@@ -1,7 +1,7 @@
 import asyncio
 import random
 
-from etwolf_client import ETClient
+from et_discord_bot.etwolf_client import ETClient
 
 
 class MockETServerProtocol(asyncio.DatagramProtocol):
@@ -37,7 +37,28 @@ class TestServerStatus(object):
         listen = loop.create_datagram_endpoint(MockETServerProtocol, local_addr=('127.0.0.1', server_port))
         transport, protocol = loop.run_until_complete(listen)
         client = ETClient()
-        raw_info = loop.run_until_complete(client.get_server_info('127.0.0.1', server_port))
+        host_info = loop.run_until_complete(client.get_server_info('127.0.0.1', server_port))
 
-        assert(int(raw_info.server_info['humans']) == 0)
-        assert('examplehost' in raw_info.server_info['hostname_plaintext'])
+        assert(host_info == {
+            'balancedteams': '1',
+            'challenge': 'xxx',
+            'clients': '0',
+            'friendlyFire': '0',
+            'g_antilag': '1',
+            'game': 'etmain',
+            'gamename': 'et',
+            'gametype': '5',
+            'hostname': '^9example^5host',
+            'hostname_plaintext': 'examplehost',
+            'humans': '0',
+            'mapname': 'obj_stadtrand',
+            'maxlives': '0',
+            'needpass': '0',
+            'protocol': '84',
+            'pure': '1',
+            'serverload': '0',
+            'sv_maxclients': '10',
+            'version': 'ET Legacy v2.75 linux-i386 Sep 13 2016',
+            'weaprestrict': '100',
+            'players': [],
+        })
