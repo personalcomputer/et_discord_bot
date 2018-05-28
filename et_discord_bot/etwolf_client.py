@@ -4,10 +4,15 @@ import datetime
 import json
 import logging
 import re
+import socket
+import struct
 
 from async_timeout import timeout
 
-ET_SERVER_RESPONSE_TIMEOUT = datetime.timedelta(seconds=3)
+from .util import split_chunks
+
+
+ET_SERVER_RESPONSE_TIMEOUT = datetime.timedelta(seconds=2)
 
 
 class ETClientProtocol(asyncio.DatagramProtocol):
@@ -29,7 +34,7 @@ class ETClientProtocol(asyncio.DatagramProtocol):
         )
 
     def send_getservers(self):
-        self.send_message(f'getservers {ETClientProtocol.PROTOCOL_VERSION}'.encode())
+        self.send_message(f'getservers {ETClientProtocol.PROTOCOL_VERSION} empty full'.encode())
 
     def send_getinfo(self):
         self.send_message('getinfo\n'.encode())
@@ -43,10 +48,10 @@ class ETClientProtocol(asyncio.DatagramProtocol):
 
     def decode_getserversResponse(self, data):
         servers = []
-        for server_raw in data.split('\\'):
-            if server_raw == b'EOT':
-                break
-            unpacked_ip_and_port = struct.unpack('!BBBBH', server_raw)
+        servers_data = data[data.find(b'\\'):data.rfind(b'\\')]
+        servers_data_list = split_chunks(servers_data, 7)
+        for server_raw in servers_data_list:
+            unpacked_ip_and_port = struct.unpack('!BBBBH', server_raw[1:])
             ip = '.'.join(map(str, unpacked_ip_and_port[:-1]))
             port = int(unpacked_ip_and_port[-1])
             servers.append((ip, port))
@@ -56,7 +61,7 @@ class ETClientProtocol(asyncio.DatagramProtocol):
         message_parts = data.decode().split('\n')
         host_info = self.decode_dict(message_parts[1])
 
-        host_info['hostname_plaintext'] = re.sub(r'\^\d', '', host_info['hostname'])
+        host_info['hostname_plaintext'] = re.sub(r'\^.', '', host_info['hostname'])
         logging.debug(json.dumps(host_info, indent=4, sort_keys=True))
         # Known values:
         # 'challenge', 'version', 'protocol', 'hostname', 'serverload', 'mapname', 'clients', 'humans', 'sv_maxclients',
@@ -73,10 +78,10 @@ class ETClientProtocol(asyncio.DatagramProtocol):
     def datagram_received(self, data, _):
         data = data[4:]  # drop \0xff\0xff\0xff\0xf
 
-        if data.startswith('infoResponse'):
+        if data.startswith(b'infoResponse'):
             message_type = 'infoResponse'
             message_content = self.decode_infoResponse(data)
-        elif data.startswith('getserversResponse'):
+        elif data.startswith(b'getserversResponse'):
             message_type = 'getserversResponse'
             message_content = self.decode_getserversResponse(data)
         else:
@@ -84,7 +89,7 @@ class ETClientProtocol(asyncio.DatagramProtocol):
             return
 
         logging.debug(f'Received {message_type}')
-        self.message_queue.append((message_type, data_content))
+        self.message_queue.append((message_type, message_content))
 
         # Wake up waiter.
         if self._waiter is not None:
@@ -115,16 +120,23 @@ class ETClient(object):
     def __init__(self, loop=None):
         self.loop = loop or asyncio.get_event_loop()
 
-    async def get_server_list(self):
+    async def get_server_list(self, master_server_addr=None):
+        if master_server_addr is None:
+            master_server_addr = (socket.gethostbyname(ETClient.MASTER_SERVER_HOST), ETClient.MASTER_SERVER_PORT)
         transport, protocol = await self.loop.create_datagram_endpoint(
             lambda: ETClientProtocol(self.loop),
-            remote_addr=(socket.gethostbyname(ETClient.MASTER_SERVER_HOST), ETClient.MASTER_SERVER_PORT)
+            remote_addr=master_server_addr
         )
         protocol.send_getservers()
         try:
-            async with timeout(ET_SERVER_RESPONSE_TIMEOUT.total_seconds()):
-                while True:
+            while True:
+                async with timeout(ET_SERVER_RESPONSE_TIMEOUT.total_seconds()):
                     await protocol.wait_for_message()
+        except asyncio.TimeoutError:
+            if not protocol.message_queue:
+                raise
+            else:
+                pass
         finally:
             transport.close()
 
@@ -150,5 +162,4 @@ class ETClient(object):
                     raise ValueError()
                 return message_content
         finally:
-            logging.info('closing transport!')
             transport.close()

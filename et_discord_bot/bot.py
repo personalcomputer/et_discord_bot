@@ -3,16 +3,19 @@ import copy
 import datetime
 import logging
 import socket
+import tempfile
 
 import discord
 import pytz
 
 from .etwolf_client import ETClient
-from .globals import config, p
+from .globals import config
 from .util import get_time_until_next_interval_start
+from .util import split_chunks
 
 SERVER_LIST_UPDATE_FREQUENCY = datetime.timedelta(hours=1)
 STATUS_UPDATE_FREQUENCY = datetime.timedelta(seconds=60)
+MAX_CONCURRENT_STATUS_QUERIES = 25
 
 
 class DiscordClient(discord.Client):
@@ -63,8 +66,8 @@ class ETBot(object):
             if message.author == self._dclient.user:
                 self._status_message = message
                 break
-        self.loop.create_task(self._update_status_message())
-        self.loop.create_task(self._update_server_list())
+        update_server_list_task = self.loop.create_task(self._update_server_list())
+        update_server_list_task.add_done_callback(lambda: self.loop.create_task(self._update_status_message()))
 
     async def _on_discord_message(self, message):
         if message.author == self._dclient.user:
@@ -86,33 +89,46 @@ class ETBot(object):
 
     async def _update_status_message(self):
         while not self._dclient.is_closed:
-            host_details = await self._get_serverstatus()
+            host_details = await self._query_serverstatus()
             await self._post_serverstatus(host_details)
             now = datetime.datetime.now(tz=pytz.timezone(config.output_timezone))
             await asyncio.sleep((get_time_until_next_interval_start(now, STATUS_UPDATE_FREQUENCY)).total_seconds())
 
     async def _update_server_list(self):
         while not self._dclient.is_closed:
-            full_host_list = await self._etclient.get_server_list()
-            for hostname, port in host_list:
-                tasks.append(self.loop.create_task(self._etclient.get_server_info(hostname, port)))
-
-            await asyncio.gather(*[h[1] for h in tasks], return_exceptions=True)
-
-            filtered_host_list = []
-            for (hostname, port), task in zip(host_list, tasks):
-                if task.exception():
-                    continue
-                host_details = task.result()
-                for key in config.server_filter:
-                    if key not in host_details:
-                        continue
-                    if host_details[key] != config.server_filter[key]:
-                        continue
-                filtered_host_list.append((hostname, port))
-
-            self._host_list = filtered_host_list
+            self._host_list = await self._query_server_list()
             await asyncio.sleep(SERVER_LIST_UPDATE_FREQUENCY.total_seconds())
+
+    def _host_details_match_filter(self, host_details):
+        for key in config.server_filter:
+            if key not in host_details:
+                return False
+            if host_details[key] != config.server_filter[key]:
+                return False
+        return True
+
+    async def _query_server_list(self):
+        logging.info('Updating server list.')
+
+        full_host_list = await self._etclient.get_server_list()
+        tasks = []
+        for host_list_chunk in split_chunks(full_host_list, MAX_CONCURRENT_STATUS_QUERIES):
+            for hostname, port in host_list_chunk:
+                tasks.append(self.loop.create_task(self._etclient.get_server_info(hostname, port)))
+            await asyncio.gather(*[h for h in tasks], return_exceptions=True)
+
+        filtered_host_list = []
+        for (hostname, port), task in zip(full_host_list, tasks):
+            if task.exception():
+                continue
+            host_details = task.result()
+            if not self._host_details_match_filter(host_details):
+                continue
+            filtered_host_list.append((hostname, port))
+
+        logging.info(f'Updated server list. {len(filtered_host_list)} servers (filtered from {len(full_host_list)} '
+                     f'total ET servers).')
+        return filtered_host_list
 
     async def _post_serverstatus(self, host_details):
         message_embed = discord.Embed(
@@ -144,16 +160,16 @@ class ETBot(object):
         else:
             self._status_message = await self._dclient.send_message(self._status_channel, embed=message_embed)
 
-    async def _get_serverstatus(self):
-        logging.info(f'Querying server status')
+    async def _query_serverstatus(self):
         tasks = []
-        host_list = copy(self._host_list)
-        for hostname, port in host_list:
-            tasks.append(self.loop.create_task(self._etclient.get_server_info(hostname, port)))
+        host_list = copy.copy(self._host_list)
+        for host_list_chunk in split_chunks(host_list, MAX_CONCURRENT_STATUS_QUERIES):
+            for hostname, port in host_list_chunk:
+                tasks.append(self.loop.create_task(self._etclient.get_server_info(hostname, port)))
+            await asyncio.gather(*[h for h in tasks], return_exceptions=True)
 
-        await asyncio.gather(*[h[1] for h in tasks], return_exceptions=True)
-        if any(task[1].exception() for task in tasks):
-            logging.warning(f'{sum(task[1].exception() is not None for task in tasks)} failed get_server_info queries')
+        if any(task.exception() for task in tasks):
+            logging.warning(f'{sum(task.exception() is not None for task in tasks)} failed get_server_info queries')
 
         host_details = []
         for (hostname, port), task in zip(host_list, tasks):

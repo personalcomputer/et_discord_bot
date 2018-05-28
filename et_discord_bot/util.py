@@ -13,3 +13,7 @@ def get_time_until_next_interval_start(current_datetime, interval_period):
         microseconds=current_time.microsecond
     )
     return interval_period - (current_time_as_dt % interval_period)
+
+
+def split_chunks(sequence, chunk_length):
+    return (sequence[i:i+chunk_length] for i in range(0, len(sequence), chunk_length))
