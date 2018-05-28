@@ -66,8 +66,8 @@ class ETBot(object):
             if message.author == self._dclient.user:
                 self._status_message = message
                 break
-        update_server_list_task = self.loop.create_task(self._update_server_list())
-        update_server_list_task.add_done_callback(lambda: self.loop.create_task(self._update_status_message()))
+        self.loop.create_task(self._update_server_list())
+        self.loop.create_task(self._update_status_message())
 
     async def _on_discord_message(self, message):
         if message.author == self._dclient.user:
