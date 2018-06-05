@@ -123,12 +123,14 @@ class ETClient(object):
     async def get_server_list(self, master_server_addr=None):
         if master_server_addr is None:
             master_server_addr = (socket.gethostbyname(ETClient.MASTER_SERVER_HOST), ETClient.MASTER_SERVER_PORT)
+
         transport, protocol = await self.loop.create_datagram_endpoint(
             lambda: ETClientProtocol(self.loop),
             remote_addr=master_server_addr
         )
-        protocol.send_getservers()
         try:
+            protocol.send_getservers()
+
             while True:
                 async with timeout(ET_SERVER_RESPONSE_TIMEOUT.total_seconds()):
                     await protocol.wait_for_message()
@@ -153,8 +155,9 @@ class ETClient(object):
             lambda: ETClientProtocol(self.loop),
             remote_addr=(server, port)
         )
-        protocol.send_getinfo()
         try:
+            protocol.send_getinfo()
+
             async with timeout(ET_SERVER_RESPONSE_TIMEOUT.total_seconds()):
                 await protocol.wait_for_message()
                 message_type, message_content = protocol.message_queue.pop()
