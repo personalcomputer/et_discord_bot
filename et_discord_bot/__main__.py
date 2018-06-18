@@ -2,10 +2,11 @@ import asyncio
 import logging
 
 from .bot import ETBot
-from .globals import config
+from .config import config, load_config
 
 
 def main():
+    load_config()
     logging.basicConfig(format='[%(asctime)s] %(levelname)s - %(message)s', datefmt='%FT%TZ', level=logging.INFO)
     loop = asyncio.get_event_loop()
 
