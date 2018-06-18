@@ -12,12 +12,18 @@ from async_timeout import timeout
 from .util import split_chunks
 
 
-ET_SERVER_RESPONSE_TIMEOUT = datetime.timedelta(seconds=2)
+OUTBOUND_GLOBAL_MAX_RATE = 256 * 1024  # Bytes per second
+ET_SERVER_RESPONSE_TIMEOUT = datetime.timedelta(seconds=6)
 
 
 class ETClientProtocol(asyncio.DatagramProtocol):
 
     PROTOCOL_VERSION = 84
+
+    # static class vars for rate-limiting global throughput. This makes ETClientProtocol non threadsafe (but still
+    # coroutine-safe).
+    last_sent_message_timestamp = None
+    last_sent_message_length = None
 
     def __init__(self, loop):
         self.loop = loop
@@ -28,16 +34,28 @@ class ETClientProtocol(asyncio.DatagramProtocol):
     def connection_made(self, transport):
         self.transport = transport
 
-    def send_message(self, data):
-        self.transport.sendto(
-            b'\xff\xff\xff\xff' + data
-        )
+    async def send_message(self, data):
+        # Rate-limit sending rate. Note that there is no queueing of messages, so if multiple messages are pending then
+        # it is arbitrary which gets sent first. This works only in the non-RT spike-heavy network conditions of
+        # et_discord_bot.
+        if ETClientProtocol.last_sent_message_timestamp:
+            wait = None
+            while wait > 0 or wait is None:
+                interval = OUTBOUND_GLOBAL_MAX_RATE / ETClientProtocol.last_sent_message_length
+                wait = self.loop.time() - (ETClientProtocol.last_sent_message_timestamp + interval)
+                if wait > 0:
+                    await asyncio.sleep(wait)
 
-    def send_getservers(self):
-        self.send_message(f'getservers {ETClientProtocol.PROTOCOL_VERSION} empty full'.encode())
+        full_message = b'\xff\xff\xff\xff' + data
+        self.transport.sendto(full_message)
+        ETClientProtocol.last_sent_message_length = len(full_message)
+        ETClientProtocol.last_sent_message_timestamp = self.loop.time()
 
-    def send_getinfo(self):
-        self.send_message('getinfo\n'.encode())
+    async def send_getservers(self):
+        await self.send_message(f'getservers {ETClientProtocol.PROTOCOL_VERSION} empty full'.encode())
+
+    async def send_getinfo(self):
+        await self.send_message('getinfo\n'.encode())
 
     def decode_dict(self, raw):
         value = dict()
@@ -129,7 +147,7 @@ class ETClient(object):
             remote_addr=master_server_addr
         )
         try:
-            protocol.send_getservers()
+            await protocol.send_getservers()
 
             while True:
                 async with timeout(ET_SERVER_RESPONSE_TIMEOUT.total_seconds()):
@@ -156,7 +174,7 @@ class ETClient(object):
             remote_addr=(server, port)
         )
         try:
-            protocol.send_getinfo()
+            await protocol.send_getinfo()
 
             async with timeout(ET_SERVER_RESPONSE_TIMEOUT.total_seconds()):
                 await protocol.wait_for_message()

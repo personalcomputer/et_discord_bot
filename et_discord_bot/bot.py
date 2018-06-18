@@ -15,7 +15,6 @@ from .util import split_chunks
 
 SERVER_LIST_UPDATE_FREQUENCY = datetime.timedelta(hours=1)
 STATUS_UPDATE_FREQUENCY = datetime.timedelta(seconds=60)
-MAX_CONCURRENT_STATUS_QUERIES = 25
 
 
 class DiscordClient(discord.Client):
@@ -112,10 +111,9 @@ class ETBot(object):
 
         full_host_list = await self._etclient.get_server_list()
         tasks = []
-        for host_list_chunk in split_chunks(full_host_list, MAX_CONCURRENT_STATUS_QUERIES):
-            for hostname, port in host_list_chunk:
-                tasks.append(self.loop.create_task(self._etclient.get_server_info(hostname, port)))
-            await asyncio.gather(*[h for h in tasks], return_exceptions=True)
+        for hostname, port in full_host_list:
+            tasks.append(self.loop.create_task(self._etclient.get_server_info(hostname, port)))
+        await asyncio.gather(*[h for h in tasks], return_exceptions=True)
 
         filtered_host_list = []
         for (hostname, port), task in zip(full_host_list, tasks):
@@ -161,12 +159,11 @@ class ETBot(object):
             self._status_message = await self._dclient.send_message(self._status_channel, embed=message_embed)
 
     async def _query_serverstatus(self):
-        tasks = []
         host_list = copy.copy(self._host_list)
-        for host_list_chunk in split_chunks(host_list, MAX_CONCURRENT_STATUS_QUERIES):
-            for hostname, port in host_list_chunk:
-                tasks.append(self.loop.create_task(self._etclient.get_server_info(hostname, port)))
-            await asyncio.gather(*[h for h in tasks], return_exceptions=True)
+        tasks = []
+        for hostname, port in host_list:
+            tasks.append(self.loop.create_task(self._etclient.get_server_info(hostname, port)))
+        await asyncio.gather(*[h for h in tasks], return_exceptions=True)
 
         if any(task.exception() for task in tasks):
             logging.warning(f'{sum(task.exception() is not None for task in tasks)} failed get_server_info queries')
