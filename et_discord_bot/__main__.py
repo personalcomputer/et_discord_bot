@@ -2,7 +2,7 @@ import asyncio
 import logging
 
 from .bot import ETBot
-from .globals import config
+from .config import config
 
 
 def main():

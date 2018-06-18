@@ -9,7 +9,7 @@ import discord
 import pytz
 
 from .etwolf_client import ETClient
-from .globals import config
+from .config import config
 from .util import get_time_until_next_interval_start
 from .util import split_chunks
 
