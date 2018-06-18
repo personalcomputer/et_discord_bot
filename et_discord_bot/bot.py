@@ -150,7 +150,7 @@ class ETBot(object):
             )
         last_updated = datetime.datetime.now(tz=pytz.timezone(config.output_timezone))
         message_embed.description = (
-            f'{total_players} total players online, {len(host_details)} servers'
+            f'{total_players} total players online, {len(host_details)} servers '
             f'(list last updated at {last_updated.strftime("%H:%M")} {last_updated.tzname()})'
         )
 
