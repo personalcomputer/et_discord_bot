@@ -12,8 +12,8 @@ from async_timeout import timeout
 
 from .util import split_chunks
 
-OUTBOUND_GLOBAL_MAX_THROUGHPUT = 256*1024   # Bytes per second
-OUTBOUND_GLOBAL_MAX_PACKET_RATE = 500      # Datagrams per second
+OUTBOUND_GLOBAL_MAX_THROUGHPUT = 256*1024  # Bytes per second
+OUTBOUND_GLOBAL_MAX_PACKET_RATE = 50       # Datagrams per second
 ET_SERVER_RESPONSE_TIMEOUT = datetime.timedelta(seconds=5)
 
 
