@@ -45,6 +45,8 @@ class ETBot(object):
 
         self._etclient = ETClient(loop)
 
+        self._healthy = True
+
         self._host_list = []
         self._status_channel = None
         self._status_message = None
@@ -57,6 +59,9 @@ class ETBot(object):
         logging.info('logging out')
         await self._dclient.logout()
         await self._dclient.close()
+
+    def is_healthy(self):
+        return self._healthy
 
     async def _on_discord_ready(self):
         logging.info(f'Successfully logged in as {self._dclient.user.name} ({self._dclient.user.id})')
@@ -87,16 +92,22 @@ class ETBot(object):
         await self._dclient.send_message(message.channel, response)
 
     async def _update_status_message(self):
-        while not self._dclient.is_closed:
+        while True:
             host_details = await self._query_serverstatus()
             await self._post_serverstatus(host_details)
             now = datetime.datetime.now(tz=pytz.timezone(config.output_timezone))
             await asyncio.sleep((get_time_until_next_interval_start(now, STATUS_UPDATE_FREQUENCY)).total_seconds())
+            if self._dclient.is_closed:
+                self._healthy = False
+                break
 
     async def _update_server_list(self):
-        while not self._dclient.is_closed:
+        while True:
             self._host_list = await self._query_server_list()
             await asyncio.sleep(SERVER_LIST_UPDATE_FREQUENCY.total_seconds())
+            if self._dclient.is_closed:
+                self._healthy = False
+                break
 
     def _host_details_match_filter(self, host_details):
         for key in config.server_filter:
