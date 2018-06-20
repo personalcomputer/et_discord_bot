@@ -8,8 +8,8 @@ CONFIG_FILEPATH = './config.json'
 
 Config = collections.namedtuple(
     'Config',
-    ['bot_administrator', 'status_output_channel', 'output_timezone',
-     'discord_api_auth_token', 'game_name_display', 'server_filter']
+    ['bot_administrator', 'status_output_channel', 'output_timezone', 'discord_api_auth_token', 'game_name_display',
+     'server_filter', 'db_path']
 )
 
 with open(CONFIG_FILEPATH) as config_file:

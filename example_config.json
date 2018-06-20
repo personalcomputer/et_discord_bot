@@ -8,4 +8,5 @@
         "needpass": "0"
     },
     "output_timezone": "US/Pacific",
+    "db_path": "state.db"
 }

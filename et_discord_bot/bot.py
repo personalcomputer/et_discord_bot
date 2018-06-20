@@ -3,6 +3,7 @@ import copy
 import datetime
 import logging
 import socket
+import sqlite3
 import tempfile
 
 import discord
@@ -35,6 +36,40 @@ class DiscordClient(discord.Client):
         await self.connect()
 
 
+class HostManagerModel(object):
+
+    def __init__(self):
+        self.raw = []
+        self._migrate()
+        self._load_from_db()
+
+    def save(self):
+        with sqlite3.connect(config.db_path) as db_conn:
+            c = db_conn.cursor()
+            c.execute('UPDATE host SET active=0')
+            for host in self.raw:
+                c.execute('SELECT id FROM host WHERE ip=? AND port=?', (host[0], host[1],))
+                result = c.fetchall()
+                if result:
+                    c.execute('UPDATE host SET active=1 WHERE id=?', (result[0][0],))
+                else:
+                    c.execute('INSERT INTO host (ip, port, active) VALUES (?, ?, 1)', (host[0], host[1],))
+
+    def refresh_from_db(self):
+        self._load_from_db()
+
+    def _migrate(self):
+        with sqlite3.connect(config.db_path) as db_conn:
+            c = db_conn.cursor()
+            c.execute('CREATE TABLE IF NOT EXISTS host (id INTEGER PRIMARY KEY, ip TEXT, port INT, active INT)')
+
+    def _load_from_db(self):
+        with sqlite3.connect(config.db_path) as db_conn:
+            c = db_conn.cursor()
+            c.execute('SELECT ip, port FROM host WHERE active=1')
+            self.raw = c.fetchall()
+
+
 class ETBot(object):
 
     def __init__(self, api_auth_token, loop=None):
@@ -47,7 +82,7 @@ class ETBot(object):
 
         self._healthy = True
 
-        self._host_list = []
+        self._hosts = HostManagerModel()
         self._status_channel = None
         self._status_message = None
         self._users_who_have_seen_help_message = set()
@@ -103,7 +138,8 @@ class ETBot(object):
 
     async def _update_server_list(self):
         while True:
-            self._host_list = await self._query_server_list()
+            self._hosts.raw = await self._query_server_list()
+            self._hosts.save()
             await asyncio.sleep(SERVER_LIST_UPDATE_FREQUENCY.total_seconds())
             if self._dclient.is_closed:
                 self._healthy = False
@@ -170,7 +206,7 @@ class ETBot(object):
             self._status_message = await self._dclient.send_message(self._status_channel, embed=message_embed)
 
     async def _query_serverstatus(self):
-        host_list = copy.copy(self._host_list)
+        host_list = copy.copy(self._hosts.raw)
         tasks = []
         for hostname, port in host_list:
             tasks.append(self.loop.create_task(self._etclient.get_server_info(hostname, port)))
