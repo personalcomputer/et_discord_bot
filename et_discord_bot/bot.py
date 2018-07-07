@@ -194,9 +194,10 @@ class ETBot(object):
                 inline=False,
             )
         last_updated = datetime.datetime.now(tz=pytz.timezone(config.output_timezone))
+        last_updated_str = f'{last_updated.strftime("%a %b %-d %H:%M")} {last_updated.tzname()}'
         message_embed.description = (
-            f'{total_players} total players online, {len(host_details)} servers '
-            f'(list last updated at {last_updated.strftime("%a %b %-d %H:%M")} {last_updated.tzname()})'
+            f'{total_players} total players online now\n'
+            f'Status list continually updated - last update at {last_updated_str}'
         )
 
         logging.info(f'Posting status message. {total_players} players online.')
