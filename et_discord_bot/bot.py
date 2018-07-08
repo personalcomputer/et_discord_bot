@@ -92,22 +92,24 @@ class ETBot(object):
         await self._dclient.send_message(message.channel, response)
 
     async def _update_status_message(self):
-        while True:
-            host_details = await self._query_serverstatus()
-            await self._post_serverstatus(host_details)
-            now = datetime.datetime.now(tz=pytz.timezone(config.output_timezone))
-            await asyncio.sleep((get_time_until_next_interval_start(now, STATUS_UPDATE_FREQUENCY)).total_seconds())
-            if self._dclient.is_closed:
-                self._healthy = False
-                break
+        try:
+            while True:
+                host_details = await self._query_serverstatus()
+                await self._post_serverstatus(host_details)
+                now = datetime.datetime.now(tz=pytz.timezone(config.output_timezone))
+                await asyncio.sleep((get_time_until_next_interval_start(now, STATUS_UPDATE_FREQUENCY)).total_seconds())
+                if self._dclient.is_closed:
+                    break
+        finally:
+            self._healthy = False
 
     async def _update_server_list(self):
-        while True:
-            self._host_list = await self._query_server_list()
-            await asyncio.sleep(SERVER_LIST_UPDATE_FREQUENCY.total_seconds())
-            if self._dclient.is_closed:
-                self._healthy = False
-                break
+        try:
+            while True:
+                self._host_list = await self._query_server_list()
+                await asyncio.sleep(SERVER_LIST_UPDATE_FREQUENCY.total_seconds())
+        finally:
+            self._healthy = False
 
     def _host_details_match_filter(self, host_details):
         for key in config.server_filter:
