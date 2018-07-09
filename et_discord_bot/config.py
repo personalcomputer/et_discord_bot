@@ -1,10 +1,11 @@
 import collections
 import json
+import os
 
 from json_minify import json_minify
 
 
-CONFIG_FILEPATH = './config.json'
+CONFIG_FILEPATH = os.environ.get('CONFIG_PATH', 'config.json')
 
 Config = collections.namedtuple(
     'Config',
