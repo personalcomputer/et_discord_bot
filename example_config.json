@@ -1,7 +1,7 @@
 {
-    // To avoid accidentally uploading your API key to git, do _NOT_ directly edit this example file. Instead, copy this
-    // file to somwhere private like ~/.et_discord_bot_config.json, and then run the bot via
-    // `make run_dev CONFIG_PATH="$HOME/.et_discord_bot_config.json"`
+    // To avoid accidentally uploading your Discord API key to GitHub, do _not_ directly edit this example file.
+    // Instead, copy this file to somwhere private like ~/.et_discord_bot_config.json, and then run the bot via `make
+    // run_dev CONFIG_PATH="$HOME/.et_discord_bot_config.json"`
 
     "discord_api_auth_token": "<enter discord bot api auth token here>",
     "status_output_channel": "<enter discord channel id here>",
