@@ -1,11 +1,16 @@
 {
-    "discord_api_auth_token": "<token>",
+    // To avoid accidentally uploading your API key to git, do _NOT_ directly edit this example file. Instead, copy this
+    // file to somwhere private like ~/.et_discord_bot_config.json, and then run the bot via
+    // `make run_dev CONFIG_PATH="$HOME/.et_discord_bot_config.json"`
+
+    "discord_api_auth_token": "<enter discord bot api auth token here>",
+    "status_output_channel": "<enter discord channel id here>",
+
     "bot_administrator": "<your name here>",
-    "status_output_channel": "<channel id>",
+    "output_timezone": "US/Pacific",
     "game_name_display": "Wolfenstein: Enemy Territory",
-    "server_filter": {
+    "server_filter": { // Example filtering to show only passwordless ET:L servers
         "game": "legacy",
         "needpass": "0"
-    },
-    "output_timezone": "US/Pacific",
+    }
 }
