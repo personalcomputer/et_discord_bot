@@ -5,3 +5,4 @@ JSON-minify==0.3.0
 pytz==2018.4
 async-timeout==3.0.0
 mock==2.0.0
+pytest==3.6.1

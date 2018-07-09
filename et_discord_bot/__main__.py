@@ -14,7 +14,6 @@ async def terminate_loop_if_unhealthy(loop, health_check):
 
 def main():
     logging.basicConfig(
-        filename='et_discord_bot.log',
         format='[%(asctime)s] %(levelname)s - %(message)s',
         datefmt='%FT%TZ',
         level=logging.INFO

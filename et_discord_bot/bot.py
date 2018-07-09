@@ -40,11 +40,13 @@ class HostManagerModel(object):
 
     def __init__(self):
         self.raw = []
+        assert(config.db_url.startswith('sqlite://'))  # No other DBMSes supported right now
+        self._sqlite_db_path = config.db_url.replace('sqlite://', '')
         self._migrate()
         self._load_from_db()
 
     def save(self):
-        with sqlite3.connect(config.db_path) as db_conn:
+        with sqlite3.connect(self._sqlite_db_path) as db_conn:
             c = db_conn.cursor()
             c.execute('UPDATE host SET active=0')
             for host in self.raw:
@@ -59,12 +61,12 @@ class HostManagerModel(object):
         self._load_from_db()
 
     def _migrate(self):
-        with sqlite3.connect(config.db_path) as db_conn:
+        with sqlite3.connect(self._sqlite_db_path) as db_conn:
             c = db_conn.cursor()
             c.execute('CREATE TABLE IF NOT EXISTS host (id INTEGER PRIMARY KEY, ip TEXT, port INT, active INT)')
 
     def _load_from_db(self):
-        with sqlite3.connect(config.db_path) as db_conn:
+        with sqlite3.connect(self._sqlite_db_path) as db_conn:
             c = db_conn.cursor()
             c.execute('SELECT ip, port FROM host WHERE active=1')
             self.raw = c.fetchall()
