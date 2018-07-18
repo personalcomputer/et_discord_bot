@@ -1,15 +1,25 @@
 import asyncio
 import logging
+import signal
+import traceback
+import StringIO
 
 from .bot import ETBot
 from .config import config
 
 
-async def terminate_loop_if_unhealthy(loop, health_check):
-    while health_check():
-        await asyncio.sleep(1)
-    logging.error("Unhealthy! Stopping asyncio loop.")
+def handle_loop_exception(loop, context):
+    logging.error(f'Exception in loop caught: {context["message"]}')
+    if exception in context:
+        exception_details = StringIO()
+        traceback.print_exception(context['exception'], file=exception_details)
+    logging.warn('Terminating asyncio loop')
     loop.stop()
+
+
+def handle_sigterm():
+    logging.warn('SIGTERM caught, terminating asyncio loop')
+    asyncio.get_event_loop().stop()
 
 
 def main():
@@ -18,18 +28,20 @@ def main():
         datefmt='%FT%TZ',
         level=logging.INFO
     )
-    loop = asyncio.get_event_loop()
+    signal.signal(signal.SIGTERM, handle_sigterm)
 
+    loop = asyncio.get_event_loop()
+    loop.set_exception_handler(handle_loop_exception)
+
+    bot = ETBot(config.discord_api_auth_token, loop=loop)
+    loop.create_task(bot.start())
     try:
-        bot = ETBot(config.discord_api_auth_token, loop)
-        loop.create_task(bot.start())
-        loop.create_task(terminate_loop_if_unhealthy(loop, lambda: bot.is_healthy()))
         loop.run_forever()
-    except KeyboardInterrupt:
-        logout_task = loop.create_task(bot.logout())
-        loop.run_until_complete(logout_task)
-    finally:
-        loop.close()
+    except KeyboardInterrupt as exception:
+        handle_loop_exception(loop, {'message': 'KeyboardInterrupt', 'exception': exception})
+    logging.info('Logging out')
+    logout_task = loop.create_task(bot.logout())
+    loop.run_until_complete(logout_task)
 
 
 if __name__ == '__main__':

@@ -75,14 +75,12 @@ class HostManagerModel(object):
 class ETBot(object):
 
     def __init__(self, api_auth_token, loop=None):
-        self.loop = loop or asyncio.get_event_loop()
+        self._loop = loop or asyncio.get_event_loop()
         self._dclient = DiscordClient(api_auth_token=api_auth_token, loop=loop)
         self._dclient.add_event_callback('on_ready', lambda: self._on_discord_ready())
         self._dclient.add_event_callback('on_message', lambda message: self._on_discord_message(message))
 
         self._etclient = ETClient(loop)
-
-        self._healthy = True
 
         self._hosts = HostManagerModel()
         self._status_channel = None
@@ -97,9 +95,6 @@ class ETBot(object):
         await self._dclient.logout()
         await self._dclient.close()
 
-    def is_healthy(self):
-        return self._healthy
-
     async def _on_discord_ready(self):
         logging.info(f'Successfully logged in as {self._dclient.user.name} ({self._dclient.user.id})')
         self._status_channel = self._dclient.get_channel(config.status_output_channel)
@@ -107,8 +102,8 @@ class ETBot(object):
             if message.author == self._dclient.user:
                 self._status_message = message
                 break
-        self.loop.create_task(self._update_server_list())
-        self.loop.create_task(self._update_status_message())
+        self._loop.create_task(self._update_server_list())
+        self._loop.create_task(self._update_status_message())
 
     async def _on_discord_message(self, message):
         if message.author == self._dclient.user:
@@ -129,25 +124,22 @@ class ETBot(object):
         await self._dclient.send_message(message.channel, response)
 
     async def _update_status_message(self):
-        try:
-            while True:
-                host_details = await self._query_serverstatus()
+        test = {}
+        x = test['234']
+        while True:
+            host_details = await self._query_serverstatus()
+            if self._dclient.is_closed:
+                raise RuntimeError('Lost connection to Discord')
+            else:
                 await self._post_serverstatus(host_details)
-                now = datetime.datetime.now(tz=pytz.timezone(config.output_timezone))
-                await asyncio.sleep((get_time_until_next_interval_start(now, STATUS_UPDATE_FREQUENCY)).total_seconds())
-                if self._dclient.is_closed:
-                    break
-        finally:
-            self._healthy = False
+            now = datetime.datetime.now(tz=pytz.timezone(config.output_timezone))
+            await asyncio.sleep((get_time_until_next_interval_start(now, STATUS_UPDATE_FREQUENCY)).total_seconds())
 
     async def _update_server_list(self):
-        try:
-            while True:
-                self._hosts.raw = await self._query_server_list()
-                self._hosts.save()
-                await asyncio.sleep(SERVER_LIST_UPDATE_FREQUENCY.total_seconds())
-        finally:
-            self._healthy = False
+        while True:
+            self._hosts.raw = await self._query_server_list()
+            self._hosts.save()
+            await asyncio.sleep(SERVER_LIST_UPDATE_FREQUENCY.total_seconds())
 
     def _host_details_match_filter(self, host_details):
         for key in config.server_filter:
@@ -163,7 +155,7 @@ class ETBot(object):
         full_host_list = await self._etclient.get_server_list()
         tasks = []
         for hostname, port in full_host_list:
-            tasks.append(self.loop.create_task(self._etclient.get_server_info(hostname, port)))
+            tasks.append(self._loop.create_task(self._etclient.get_server_info(hostname, port)))
         await asyncio.gather(*[h for h in tasks], return_exceptions=True)
 
         filtered_host_list = []
@@ -214,7 +206,7 @@ class ETBot(object):
         host_list = copy.copy(self._hosts.raw)
         tasks = []
         for hostname, port in host_list:
-            tasks.append(self.loop.create_task(self._etclient.get_server_info(hostname, port)))
+            tasks.append(self._loop.create_task(self._etclient.get_server_info(hostname, port)))
         await asyncio.gather(*[h for h in tasks], return_exceptions=True)
 
         if any(task.exception() for task in tasks):
