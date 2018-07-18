@@ -90,7 +90,11 @@ class ETBot(object):
         self._users_who_have_seen_help_message = set()
 
     async def start(self):
-        await self._dclient.start()
+        try:
+            await self._dclient.start()
+        except Exception:
+            self._healthy = False
+            raise
 
     async def logout(self):
         logging.info('logging out')
