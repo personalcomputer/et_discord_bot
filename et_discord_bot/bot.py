@@ -105,14 +105,18 @@ class ETBot(object):
         return self._healthy
 
     async def _on_discord_ready(self):
-        logging.info(f'Successfully logged in as {self._dclient.user.name} ({self._dclient.user.id})')
-        self._status_channel = self._dclient.get_channel(config.status_output_channel)
-        async for message in self._dclient.logs_from(self._status_channel, limit=30):
-            if message.author == self._dclient.user:
-                self._status_message = message
-                break
-        self.loop.create_task(self._update_server_list())
-        self.loop.create_task(self._update_status_message())
+        try:
+            logging.info(f'Successfully logged in as {self._dclient.user.name} ({self._dclient.user.id})')
+            self._status_channel = self._dclient.get_channel(config.status_output_channel)
+            async for message in self._dclient.logs_from(self._status_channel, limit=30):
+                if message.author == self._dclient.user:
+                    self._status_message = message
+                    break
+            self.loop.create_task(self._update_server_list())
+            self.loop.create_task(self._update_status_message())
+        except Exception:
+            self._healthy = False
+            raise
 
     async def _on_discord_message(self, message):
         if message.author == self._dclient.user:
