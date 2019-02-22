@@ -182,6 +182,8 @@ class ETBot(object):
             if not self._host_details_match_filter(host_details):
                 continue
             filtered_host_list.append((hostname, port))
+        # Insert custom server
+        filtered_host_list.append(('72.184.116.214', 27970))
 
         logging.info(f'Updated server list. {len(filtered_host_list)} servers (filtered from {len(full_host_list)} '
                      f'total ET servers).')
