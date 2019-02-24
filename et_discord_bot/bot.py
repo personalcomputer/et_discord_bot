@@ -183,7 +183,10 @@ class ETBot(object):
                 continue
             filtered_host_list.append((hostname, port))
         # Insert custom server
-        filtered_host_list.append(('72.184.116.214', 27970))
+        try:
+            filtered_host_list.append((socket.gethostbyname_ex('aaronthewizard.com')[2][0], 27970))
+        except Exception:
+            pass
 
         logging.info(f'Updated server list. {len(filtered_host_list)} servers (filtered from {len(full_host_list)} '
                      f'total ET servers).')
