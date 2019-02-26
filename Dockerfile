@@ -5,4 +5,4 @@ RUN pip install -r /app/requirements.txt
 ADD . /app
 
 WORKDIR /app
-CMD python -m et_discord_bot
+CMD ["python", "-m", "et_discord_bot"]

@@ -9,11 +9,12 @@ from .config import config
 async def terminate_loop_if_bot_unhealthy(loop, bot):
     while bot.is_healthy():
         await asyncio.sleep(1)
-    logging.error("Unhealthy! Stopping asyncio loop.")
+    logging.error('Unhealthy! Stopping asyncio loop.')
     loop.stop()
 
 
 async def gracefully_terminate(loop, bot):
+    logging.info('Gracefully terminating.')
     await bot.logout()
     loop.stop()
 

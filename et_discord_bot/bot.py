@@ -97,7 +97,6 @@ class ETBot(object):
             raise
 
     async def logout(self):
-        logging.info('logging out')
         await self._dclient.logout()
         await self._dclient.close()
 
