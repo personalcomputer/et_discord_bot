@@ -199,7 +199,7 @@ class ETBot(object):
     async def _post_serverstatus(self, host_details):
         message_embed = discord.Embed(
             title=f'{config.game_name_display} Servers',
-            colour=int('0xFFFFFF', 16),
+            colour=int('FFFFFF', 16),
         )
         total_players = 0
         for host_info in host_details:
@@ -256,8 +256,8 @@ class ETBot(object):
             return None
         else:
             response = (
-                f'Hi there! I provide info on {config.game_name_display} server status. I\'m like the in-game multiplayer '
-                f'server list, but imported into Discord.\n'
+                f'Hi there! I provide info on {config.game_name_display} server status. I\'m like the in-game '
+                f'multiplayer server list, but imported into Discord.\n'
                 f'\n'
                 f'You can see my updates on this channel: #{self._status_channel.name}\n'
                 f'\n'
