@@ -1,14 +1,20 @@
-import asyncio
 import logging
+import signal
+import asyncio
 
 from .bot import ETBot
 from .config import config
 
 
-async def terminate_loop_if_unhealthy(loop, health_check):
-    while health_check():
+async def terminate_loop_if_bot_unhealthy(loop, bot):
+    while bot.is_healthy():
         await asyncio.sleep(1)
     logging.error("Unhealthy! Stopping asyncio loop.")
+    loop.stop()
+
+
+async def gracefully_terminate(loop, bot):
+    await bot.logout()
     loop.stop()
 
 
@@ -23,11 +29,10 @@ def main():
     try:
         bot = ETBot(config.discord_api_auth_token, loop)
         loop.create_task(bot.start())
-        loop.create_task(terminate_loop_if_unhealthy(loop, lambda: bot.is_healthy()))
+        loop.create_task(terminate_loop_if_bot_unhealthy(loop, bot))
+        loop.add_signal_handler(signal.SIGINT, lambda: loop.create_task(gracefully_terminate(loop, bot)))
+        loop.add_signal_handler(signal.SIGTERM, lambda: loop.create_task(gracefully_terminate(loop, bot)))
         loop.run_forever()
-    except KeyboardInterrupt:
-        logout_task = loop.create_task(bot.logout())
-        loop.run_until_complete(logout_task)
     finally:
         loop.close()
 
