@@ -182,15 +182,19 @@ class ETBot(object):
             if not self._host_details_match_filter(host_details):
                 continue
             filtered_host_list.append((hostname, port))
-        # Insert custom server
-        try:
-            filtered_host_list.append((socket.gethostbyname_ex('aaronthewizard.com')[2][0], 27970))
-        except Exception:
-            pass
+
+        additional_host_list = []
+        for host in config.additional_servers:
+            try:
+                hostname = socket.gethostbyname_ex(host['hostname'])[2][0]
+            except socket.gaierror:
+                pass
+            else:
+                additional_host_list.append((hostname, host['port']))
 
         logging.info(f'Updated server list. {len(filtered_host_list)} servers (filtered from {len(full_host_list)} '
-                     f'total ET servers).')
-        return filtered_host_list
+                     f'total ET servers), plus {len(additional_host_list)} servers from config.')
+        return list(set(filtered_host_list).union(additional_host_list))
 
     async def _post_serverstatus(self, host_details):
         message_embed = discord.Embed(
@@ -214,7 +218,7 @@ class ETBot(object):
         last_updated_str = f'{last_updated.strftime("%a %b %-d %H:%M")} {last_updated.tzname()}'
         message_embed.description = (
             f'{total_players} total players online now\n'
-            f'Status list continually updated - last update at {last_updated_str}'
+            f'This status list is updated every minute - last update at {last_updated_str}'
         )
 
         logging.info(f'Posting status message. {total_players} players online.')
@@ -244,8 +248,7 @@ class ETBot(object):
 
         return sorted(
             host_details,
-            key=lambda host_info: host_info['hostname_plaintext'],
-            reverse=True
+            key=lambda host_info: (-int(host_info['clients']), host_info['hostname_plaintext'])
         )
 
     async def _reply_dm(self, message):
