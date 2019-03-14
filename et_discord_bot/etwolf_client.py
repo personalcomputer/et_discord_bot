@@ -166,8 +166,8 @@ class ETClient(object):
                 await protocol.send_getservers()
 
                 while True:
-                    async with timeout(ET_SERVER_RESPONSE_TIMEOUT.total_seconds()):
-                        await protocol.wait_for_message()
+                    await asyncio.wait_for(protocol.wait_for_message(),
+                                           timeout=ET_SERVER_RESPONSE_TIMEOUT.total_seconds())
             except asyncio.TimeoutError:
                 if not protocol.message_queue:
                     raise
@@ -189,13 +189,14 @@ class ETClient(object):
                 await protocol.send_getinfo()
 
                 try:
-                    async with timeout(ET_SERVER_RESPONSE_TIMEOUT.total_seconds()):
-                        await protocol.wait_for_message()
-                        message_type, message_content = protocol.message_queue.pop()
-                        if message_type != 'infoResponse':
-                            raise ValueError()
-                        return message_content
+                    await asyncio.wait_for(protocol.wait_for_message(),
+                                           timeout=ET_SERVER_RESPONSE_TIMEOUT.total_seconds())
                 except asyncio.TimeoutError:
                     tries -= 1
                     if not tries:
                         raise
+                else:
+                    message_type, message_content = protocol.message_queue.pop()
+                    if message_type != 'infoResponse':
+                        raise ValueError()
+                    return message_content
