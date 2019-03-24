@@ -4,15 +4,13 @@ import datetime
 import logging
 import socket
 import sqlite3
-import tempfile
 
 import discord
 import pytz
 
-from .etwolf_client import ETClient
 from .config import config
+from .etwolf_client import ETClient
 from .util import get_time_until_next_interval_start
-from .util import split_chunks
 
 SERVER_LIST_UPDATE_FREQUENCY = datetime.timedelta(hours=1)
 STATUS_UPDATE_FREQUENCY = datetime.timedelta(seconds=60)

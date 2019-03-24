@@ -1,6 +1,4 @@
-import asyncio_extras
 import asyncio
-import collections
 import datetime
 import json
 import logging
@@ -8,12 +6,12 @@ import re
 import socket
 import struct
 
-from async_timeout import timeout
+import asyncio_extras
 
 from .util import split_chunks
 
-OUTBOUND_GLOBAL_MAX_THROUGHPUT = 256*1024  # Bytes per second
-OUTBOUND_GLOBAL_MAX_PACKET_RATE = 50       # Datagrams per second
+OUTBOUND_GLOBAL_MAX_THROUGHPUT = 256 * 1024  # Bytes per second
+OUTBOUND_GLOBAL_MAX_PACKET_RATE = 50         # Datagrams per second
 ET_SERVER_RESPONSE_TIMEOUT = datetime.timedelta(seconds=5)
 
 
@@ -44,7 +42,7 @@ class ETClientProtocol(asyncio.DatagramProtocol):
             while wait is None or wait > 0:
                 interval = max(
                     ETClientProtocol.last_sent_message_length / OUTBOUND_GLOBAL_MAX_THROUGHPUT,
-                    1/OUTBOUND_GLOBAL_MAX_PACKET_RATE
+                    1 / OUTBOUND_GLOBAL_MAX_PACKET_RATE
                 )
                 wait = (ETClientProtocol.last_sent_message_timestamp + interval) - self.loop.time()
                 if wait > 0:
@@ -65,7 +63,7 @@ class ETClientProtocol(asyncio.DatagramProtocol):
         value = dict()
         raw_list = raw[1:].split('\\')
         for i in range(0, len(raw_list), 2):
-            value[raw_list[i]] = raw_list[i+1]
+            value[raw_list[i]] = raw_list[i + 1]
         return value
 
     def decode_getserversResponse(self, data):
