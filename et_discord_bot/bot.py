@@ -12,7 +12,7 @@ from .config import config
 from .etwolf_client import ETClient
 from .util import get_time_until_next_interval_start
 
-SERVER_LIST_UPDATE_FREQUENCY = datetime.timedelta(hours=1)
+SERVER_LIST_UPDATE_FREQUENCY = datetime.timedelta(minutes=15)
 STATUS_UPDATE_FREQUENCY = datetime.timedelta(seconds=60)
 
 
