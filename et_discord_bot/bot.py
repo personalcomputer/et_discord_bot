@@ -81,7 +81,7 @@ class ETBot(object):
         self._etclient = ETClient(loop)
 
         self._healthy = True
-        self._started_at = datetime.datetime.now(pytz.utc)
+        self._initialized_at = datetime.datetime.now(pytz.utc)
         self._sent_last_message_at = None
 
         self._hosts = HostManagerModel()
@@ -109,9 +109,10 @@ class ETBot(object):
         if self._sent_last_message_at:
             last_activity = self._sent_last_message_at
         else:
-            last_activity = self._started_at
+            last_activity = self._initialized_at
 
         if (datetime.datetime.now(pytz.utc) - last_activity) >= datetime.timedelta(seconds=5*60):
+            logging.info(f'No activity since {last_activity}, reporting unhealthy.')
             return False
 
         return True
