@@ -1,16 +1,18 @@
+import asyncio
 import logging
 import signal
-import asyncio
+import time
 
 from .bot import ETBot
 from .config import config
-
 
 async def terminate_loop_if_bot_unhealthy(loop, bot):
     while bot.is_healthy():
         await asyncio.sleep(1)
     logging.error('Unhealthy! Stopping asyncio loop.')
     loop.stop()
+    logging.error('Waiting 15 seconds before restarting...')
+    time.sleep(15)
 
 
 async def gracefully_terminate(loop, bot):

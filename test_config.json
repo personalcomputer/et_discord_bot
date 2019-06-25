@@ -13,5 +13,6 @@
     "server_filter": { // Example filtering to show only passwordless ET:L servers
         "game": "legacy",
         "needpass": "0"
-    }
+    },
+    "additional_servers": null
 }

@@ -81,6 +81,8 @@ class ETBot(object):
         self._etclient = ETClient(loop)
 
         self._healthy = True
+        self._started_at = datetime.datetime.now(pytz.utc)
+        self._sent_last_message_at = None
 
         self._hosts = HostManagerModel()
         self._status_channel = None
@@ -99,7 +101,20 @@ class ETBot(object):
         await self._dclient.close()
 
     def is_healthy(self):
-        return self._healthy
+        # If internally flagged as unhealthy, report unhealthy.
+        if not self._healthy:
+            return False
+
+        # If no recorded activity for 5 minutes, report unhealthy.
+        if self._sent_last_message_at:
+            last_activity = self._sent_last_message_at
+        else:
+            last_activity = self._started_at
+
+        if (datetime.datetime.now(pytz.utc) - last_activity) >= datetime.timedelta(seconds=5*60):
+            return False
+
+        return True
 
     async def _on_discord_ready(self):
         try:
@@ -138,8 +153,11 @@ class ETBot(object):
             while True:
                 host_details = await self._query_serverstatus()
                 await self._post_serverstatus(host_details)
-                now = datetime.datetime.now(tz=pytz.timezone(config.output_timezone))
-                await asyncio.sleep((get_time_until_next_interval_start(now, STATUS_UPDATE_FREQUENCY)).total_seconds())
+                now = datetime.datetime.now(pytz.utc)
+                self._sent_last_message_at = now
+                now_in_output_tz = now.astimezone(pytz.timezone(config.output_timezone))
+                sleep_time = get_time_until_next_interval_start(now_in_output_tz, STATUS_UPDATE_FREQUENCY)
+                await asyncio.sleep(sleep_time.total_seconds())
                 if self._dclient.is_closed:
                     break
         finally:
