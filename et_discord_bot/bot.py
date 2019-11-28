@@ -203,8 +203,8 @@ class ETBot(object):
         for host in config.additional_servers:
             try:
                 hostname = socket.gethostbyname_ex(host['hostname'])[2][0]
-            except socket.gaierror:
-                pass
+            except socket.gaierror as e:
+                logging.warning(f'Failed to query custom additional_server, {host["hostname"]}: {e}')
             else:
                 additional_host_list.append((hostname, host['port']))
 
