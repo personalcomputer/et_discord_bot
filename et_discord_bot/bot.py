@@ -250,11 +250,15 @@ class ETBot(object):
             tasks.append(self.loop.create_task(self._etclient.get_server_info(hostname, port)))
         await asyncio.gather(*tasks, return_exceptions=True)
 
+        host_with_task_list = zip(host_list, tasks)
+
         if any(task.exception() for task in tasks):
-            logging.warning(f'{sum(bool(task.exception()) for task in tasks)} failed get_server_info queries')
+            num_failed = sum(bool(task.exception()) for task in tasks)
+            failed_addresses = [f'{hostname}:{port}' for (hostname, port), task in host_with_task_list if task.exception()]
+            logging.warning(f'{num_failed} failed get_server_info queries: {", ".join(failed_addresses)}')
 
         host_details = []
-        for (hostname, port), task in zip(host_list, tasks):
+        for (hostname, port), task in host_with_task_list:
             if task.exception():
                 continue
             host_info = task.result()
