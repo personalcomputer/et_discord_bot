@@ -222,7 +222,7 @@ class ETBot(object):
             player_count = int(host_info['humans'] if 'humans' in host_info else host_info['clients'])
             total_players += player_count
             if player_count > 0:
-                icon = ':large_blue_circle:'
+                icon = ':blue_circle:'
             else:
                 icon = ':black_circle:'
             message_embed.add_field(
