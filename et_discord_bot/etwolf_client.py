@@ -78,7 +78,7 @@ class ETClientProtocol(asyncio.DatagramProtocol):
         return servers
 
     def decode_infoResponse(self, data):
-        message_parts = data.decode().split('\n')
+        message_parts = data.decode('UTF8', 'replace').split('\n')
         host_info = self.decode_dict(message_parts[1])
 
         host_info['hostname_plaintext'] = re.sub(r'\^.', '', host_info['hostname'])
