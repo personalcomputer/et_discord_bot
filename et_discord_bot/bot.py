@@ -119,12 +119,14 @@ class ETBot(object):
         return True
 
     async def _on_discord_ready(self):
+        if self._started:
+            # Prevent from starting the tasks/scheduler multiple times. _on_discord_ready gets called after every
+            # RECONNECT, not just after the initial connection.
+            return
+        self._started = True
+
         try:
             logging.info(f'Successfully logged in as {self._dclient.user.name} ({self._dclient.user.id})')
-            if self._started:
-                # Prevent from starting the tasks/scheduler multiple times. _on_discord_ready gets
-                # called after every RECONNECT, not just after the initial connection.
-                return
             self._status_channel = self._dclient.get_channel(config.status_output_channel)
             async for message in self._dclient.logs_from(self._status_channel, limit=30):
                 if message.author == self._dclient.user:
@@ -132,7 +134,6 @@ class ETBot(object):
                     break
             self.loop.create_task(self._update_server_list())
             self.loop.create_task(self._update_status_message())
-            self._started = True
         except Exception:
             self._healthy = False
             raise
@@ -260,7 +261,12 @@ class ETBot(object):
 
         if any(task.exception() for task in tasks):
             num_failed = sum(bool(task.exception()) for task in tasks)
-            failed_addresses = [f'{hostname}:{port}' for (hostname, port), task in host_with_task_list if task.exception()]
+            failed_addresses = [
+                f'{hostname}:{port}'
+                for (hostname, port), task
+                in host_with_task_list
+                if task.exception()
+            ]
             logging.warning(f'{num_failed} failed get_server_info queries: {", ".join(failed_addresses)}')
 
         host_details = []
