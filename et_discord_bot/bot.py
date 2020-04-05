@@ -81,6 +81,7 @@ class ETBot(object):
         self._etclient = ETClient(loop)
 
         self._healthy = True
+        self._started = False
         self._initialized_at = datetime.datetime.now(pytz.utc)
         self._sent_last_message_at = None
 
@@ -120,6 +121,10 @@ class ETBot(object):
     async def _on_discord_ready(self):
         try:
             logging.info(f'Successfully logged in as {self._dclient.user.name} ({self._dclient.user.id})')
+            if self._started:
+                # Prevent from starting the tasks/scheduler multiple times. _on_discord_ready gets
+                # called after every RECONNECT, not just after the initial connection.
+                return
             self._status_channel = self._dclient.get_channel(config.status_output_channel)
             async for message in self._dclient.logs_from(self._status_channel, limit=30):
                 if message.author == self._dclient.user:
@@ -127,6 +132,7 @@ class ETBot(object):
                     break
             self.loop.create_task(self._update_server_list())
             self.loop.create_task(self._update_status_message())
+            self._started = True
         except Exception:
             self._healthy = False
             raise
