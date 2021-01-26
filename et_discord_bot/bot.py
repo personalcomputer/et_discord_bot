@@ -220,20 +220,33 @@ class ETBot(object):
                      f'total ET servers), plus {len(additional_host_list)} servers from config.')
         return list(set(filtered_host_list).union(additional_host_list))
 
+    def _get_festive_emoji(self):
+        now = datetime.datetime.utcnow()
+        if datetime.datetime(now.year, 5, 23, 16, 0) <= now <= datetime.datetime(now.year, 5, 24, 3, 0):
+            return ':doughnut:'
+        return ''
+        # :santa:
+        # :sun_with_face:
+
     async def _post_serverstatus(self, host_details):
         message_embed = discord.Embed(
             title=f'{config.game_name_display} Servers',
             colour=int('FFFFFF', 16),
         )
         total_players = 0
+        festive_emoji = self._get_festive_emoji()
         for host_info in host_details:
             player_count = int(host_info['humans'] if 'humans' in host_info else host_info['clients'])
             total_players += player_count
-            if player_count > 0:
+            show_festive_emoji = festive_emoji and player_count > 0
+            if show_festive_emoji:
+                icon = festive_emoji
+            elif player_count > 0:
                 icon = ':blue_circle:'
             else:
                 icon = ':black_circle:'
-            name = f'{icon} {player_count}/{host_info["sv_maxclients"]} | {host_info["hostname_plaintext"]}'
+            decoration = f' {festive_emoji}' if show_festive_emoji else ''
+            name = f'{icon} {player_count}/{host_info["sv_maxclients"]} | {host_info["hostname_plaintext"]}{decoration}'
             message_embed.add_field(
                 name=name,
                 value=f'`+connect {host_info["ip"]}:{host_info["port"]}` | Map: {host_info["mapname"]}',
