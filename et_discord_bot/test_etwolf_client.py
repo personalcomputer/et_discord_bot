@@ -137,6 +137,6 @@ class TestServerList(object):
         listen = loop.create_datagram_endpoint(MockETServerProtocol, local_addr=('127.0.0.1', 47700))
         transport, protocol = loop.run_until_complete(listen)
         client = ETClient()
-        servers = loop.run_until_complete(client.get_server_list(master_server_addr=('127.0.0.1', 47700)))
+        servers = loop.run_until_complete(client.query_master_server(master_server_addr=('127.0.0.1', 47700)))
         assert(len(servers) == 198)
         assert(('62.210.71.44', 27962) in servers)

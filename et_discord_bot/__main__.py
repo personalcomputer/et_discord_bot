@@ -11,7 +11,7 @@ async def terminate_loop_if_bot_unhealthy(loop, bot):
         await asyncio.sleep(1)
     logging.error('Unhealthy! Stopping asyncio loop.')
     loop.stop()
-    logging.error('Waiting 15 seconds before restarting...')
+    logging.error('Waiting 15 seconds before ending the process...')
     time.sleep(15)
 
 

@@ -138,8 +138,14 @@ class ETClientProtocol(asyncio.DatagramProtocol):
 
 class ETClient(object):
 
-    MASTER_SERVER_HOST = 'etmaster.idsoftware.com'
-    MASTER_SERVER_PORT = 27950
+    class UnableToConnectToMasterServersError(Exception):
+        pass
+
+    MASTER_SERVERS = [
+        ('etmaster.idsoftware.com', 27950),
+        ('master.etlegacy.com', 27950),
+        ('master0.etmaster.net', 27950)
+    ]
 
     def __init__(self, loop=None):
         self.loop = loop or asyncio.get_event_loop()
@@ -155,10 +161,19 @@ class ETClient(object):
         finally:
             transport.close()
 
-    async def get_server_list(self, master_server_addr=None):
-        if master_server_addr is None:
-            master_server_addr = (socket.gethostbyname(ETClient.MASTER_SERVER_HOST), ETClient.MASTER_SERVER_PORT)
+    async def get_server_list(self):
+        for master_server_host, master_server_port in self.MASTER_SERVERS:
+            try:
+                servers = await self.query_master_server(
+                    (socket.gethostbyname(master_server_host), master_server_port))
+                return servers
+            except asyncio.TimeoutError:
+                logging.warn(f'Failed to query master server {master_server_host},'
+                             f' trying next alternative...')
+                continue
+        raise self.UnableToConnectToMasterServersError
 
+    async def query_master_server(self, master_server_addr):
         async with self.connect(master_server_addr) as protocol:
             try:
                 await protocol.send_getservers()

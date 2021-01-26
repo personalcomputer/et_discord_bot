@@ -4,7 +4,7 @@
     // `make run_debug CONFIG_PATH="$HOME/.et_discord_bot_config.json"`
 
     "discord_api_auth_token": "<enter discord bot api auth token here>",
-    "status_output_channel": "<enter discord channel id here>",
+    "status_output_channel": <enter discord channel id here>,
 
     "bot_administrator": "<your name here>",
     "output_timezone": "US/Pacific",

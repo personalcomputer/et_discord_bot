@@ -128,7 +128,7 @@ class ETBot(object):
         try:
             logging.info(f'Successfully logged in as {self._dclient.user.name} ({self._dclient.user.id})')
             self._status_channel = self._dclient.get_channel(config.status_output_channel)
-            async for message in self._dclient.logs_from(self._status_channel, limit=30):
+            async for message in self._status_channel.history(limit=30):
                 if message.author == self._dclient.user:
                     self._status_message = message
                     break
@@ -144,7 +144,7 @@ class ETBot(object):
 
         logging.debug('Recieved message from @{message.author.name}: "{message.content}"')
 
-        if message.channel.is_private:
+        if isinstance(message.channel, discord.abc.PrivateChannel):
             response = await self._reply_dm(message)
         else:
             return
@@ -166,7 +166,8 @@ class ETBot(object):
                 now_in_output_tz = now.astimezone(pytz.timezone(config.output_timezone))
                 sleep_time = get_time_until_next_interval_start(now_in_output_tz, STATUS_UPDATE_FREQUENCY)
                 await asyncio.sleep(sleep_time.total_seconds())
-                if self._dclient.is_closed:
+                if self._dclient.is_closed():
+                    logging.info('Discord client is_closed!')
                     break
         finally:
             self._healthy = False
@@ -232,8 +233,9 @@ class ETBot(object):
                 icon = ':blue_circle:'
             else:
                 icon = ':black_circle:'
+            name = f'{icon} {player_count}/{host_info["sv_maxclients"]} | {host_info["hostname_plaintext"]}'
             message_embed.add_field(
-                name=f'{icon} {player_count}/{host_info["sv_maxclients"]} | {host_info["hostname_plaintext"]}',
+                name=name,
                 value=f'`+connect {host_info["ip"]}:{host_info["port"]}` | Map: {host_info["mapname"]}',
                 inline=False,
             )
@@ -246,9 +248,9 @@ class ETBot(object):
 
         logging.info(f'Posting status message. {total_players} players online.')
         if self._status_message:
-            await self._dclient.edit_message(self._status_message, embed=message_embed)
+            await self._status_message.edit(embed=message_embed)
         else:
-            self._status_message = await self._dclient.send_message(self._status_channel, embed=message_embed)
+            self._status_message = await self._status_channel.send(embed=message_embed)
 
     async def _query_serverstatus(self):
         host_list = copy.copy(self._hosts.raw)
